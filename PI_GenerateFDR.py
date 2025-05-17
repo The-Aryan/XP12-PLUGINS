@@ -119,7 +119,7 @@ class PythonInterface:
         signature = "aryanshukla.plugin002.generatefdr"
         description = "Logs Timeseries Data Into A FDR File"
 
-        menu_id = xp.createMenu("Timeseries Generator", None, 0, toggle_logging, 0)
+        menu_id = xp.createMenu("genFDR", None, 0, toggle_logging, 0)
         xp.appendMenuItem(menu_id, "Toggle", 1, 1)
 
         return name, signature, description

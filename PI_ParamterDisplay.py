@@ -58,18 +58,16 @@ class PythonInterface:
     def XPluginStart(self):
         global airspeed_ref, altitude_ref, vertical_speed_ref, throttle_ref, n2_ref, n1_ref
         
-        # Find DataRefs
         airspeed_ref = xp.findDataRef("sim/flightmodel/position/indicated_airspeed")
         altitude_ref = xp.findDataRef("sim/cockpit2/gauges/indicators/altitude_ft_copilot")
         vertical_speed_ref = xp.findDataRef("sim/flightmodel/position/vh_ind_fpm")
         n2_ref = xp.findDataRef("sim/flightmodel/engine/ENGN_N2_")
         n1_ref = xp.findDataRef("sim/flightmodel/engine/ENGN_N1_")
 
-        # Register Callbacks
         xp.registerFlightLoopCallback(flight_loop_callback, 1.0, None)
         xp.registerDrawCallback(draw_callback, xp.Phase_Window, 0, None)
 
-        return "FlightStatusHUD", "com.myplugin.fshud", "Displays flight data as a HUD overlay"
+        return "Display Parameters", "aryanshukla.plugin001.paramdisplay", "Displays Flight Data As A HUD Overlay"
 
     def XPluginEnable(self):
         return 1
