@@ -80,3 +80,5 @@ class PythonInterface:
 
     def XPluginStop(self):
         return
+    
+    "This is a test comment"
