@@ -2,22 +2,6 @@ from XPPython3 import xp  # type: ignore
 import os
 import datetime
 
-# datarefs = {
-#     'latitude': xp.findDataRef('sim/flightmodel/position/latitude'),
-#     'longitude': xp.findDataRef('sim/flightmodel/position/longitude'),
-#     'press_altitude': xp.findDataRef('sim/flightmodel2/position/pressure_altitude'),
-#     'baro_altitude': xp.findDataRef('sim/cockpit2/gauges/indicators/altitude_ft_pilot'),
-#     'mag_heading': xp.findDataRef('sim/flightmodel/position/mag_psi'),
-#     'pitch': xp.findDataRef('sim/flightmodel/position/theta'),
-#     'roll': xp.findDataRef('sim/flightmodel/position/phi'),
-#     'qnh': xp.findDataRef('sim/cockpit/misc/barometer_setting'),
-#     'cas': xp.findDataRef('sim/cockpit2/gauges/indicators/airspeed_kts_pilot'),
-#     'tas': xp.findDataRef('sim/cockpit2/gauges/indicators/true_airspeed_kts_pilot'),
-#     'gs': xp.findDataRef('sim/cockpit2/gauges/indicators/ground_speed_kt'),
-#     'vspd': xp.findDataRef('sim/cockpit2/gauges/indicators/vvi_fpm_pilot'),
-#     'oat': xp.findDataRef('sim/cockpit2/temperature/outside_air_temp_degc')
-# }
-
 datarefs = {
     'latitude': 'sim/flightmodel/position/latitude',
     'longitude': 'sim/flightmodel/position/longitude',
