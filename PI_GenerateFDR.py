@@ -2,20 +2,39 @@ from XPPython3 import xp  # type: ignore
 import os
 import datetime
 
+# datarefs = {
+#     'latitude': xp.findDataRef('sim/flightmodel/position/latitude'),
+#     'longitude': xp.findDataRef('sim/flightmodel/position/longitude'),
+#     'press_altitude': xp.findDataRef('sim/flightmodel2/position/pressure_altitude'),
+#     'baro_altitude': xp.findDataRef('sim/cockpit2/gauges/indicators/altitude_ft_pilot'),
+#     'mag_heading': xp.findDataRef('sim/flightmodel/position/mag_psi'),
+#     'pitch': xp.findDataRef('sim/flightmodel/position/theta'),
+#     'roll': xp.findDataRef('sim/flightmodel/position/phi'),
+#     'qnh': xp.findDataRef('sim/cockpit/misc/barometer_setting'),
+#     'cas': xp.findDataRef('sim/cockpit2/gauges/indicators/airspeed_kts_pilot'),
+#     'tas': xp.findDataRef('sim/cockpit2/gauges/indicators/true_airspeed_kts_pilot'),
+#     'gs': xp.findDataRef('sim/cockpit2/gauges/indicators/ground_speed_kt'),
+#     'vspd': xp.findDataRef('sim/cockpit2/gauges/indicators/vvi_fpm_pilot'),
+#     'oat': xp.findDataRef('sim/cockpit2/temperature/outside_air_temp_degc')
+# }
+
 datarefs = {
-    'latitude': xp.findDataRef('sim/flightmodel/position/latitude'),
-    'longitude': xp.findDataRef('sim/flightmodel/position/longitude'),
-    'press_altitude': xp.findDataRef('sim/flightmodel2/position/pressure_altitude'),
-    'baro_altitude': xp.findDataRef('sim/cockpit2/gauges/indicators/altitude_ft_pilot'),
-    'mag_heading': xp.findDataRef('sim/flightmodel/position/mag_psi'),
-    'pitch': xp.findDataRef('sim/flightmodel/position/theta'),
-    'roll': xp.findDataRef('sim/flightmodel/position/phi'),
-    'qnh': xp.findDataRef('sim/cockpit/misc/barometer_setting'),
-    'cas': xp.findDataRef('sim/cockpit2/gauges/indicators/airspeed_kts_pilot'),
-    'tas': xp.findDataRef('sim/cockpit2/gauges/indicators/true_airspeed_kts_pilot'),
-    'gs': xp.findDataRef('sim/cockpit2/gauges/indicators/ground_speed_kt'),
-    'vspd': xp.findDataRef('sim/cockpit2/gauges/indicators/vvi_fpm_pilot'),
-    'oat': xp.findDataRef('sim/cockpit2/temperature/outside_air_temp_degc')
+    'latitude': 'sim/flightmodel/position/latitude',
+    'longitude': 'sim/flightmodel/position/longitude',
+    'press_altitude': 'sim/flightmodel2/position/pressure_altitude',
+    'baro_altitude': 'sim/cockpit2/gauges/indicators/altitude_ft_pilot',
+    'mag_heading': 'sim/flightmodel/position/mag_psi',
+    'pitch': 'sim/flightmodel/position/theta',
+    'roll': 'sim/flightmodel/position/phi',
+    'qnh': 'sim/cockpit/misc/barometer_setting',
+    'cas': 'sim/cockpit2/gauges/indicators/airspeed_kts_pilot',
+    'tas': 'sim/cockpit2/gauges/indicators/true_airspeed_kts_pilot',
+    'gs': 'sim/cockpit2/gauges/indicators/ground_speed_kt',
+    'vspd': 'sim/cockpit2/gauges/indicators/vvi_fpm_pilot',
+    'oat': 'sim/cockpit2/temperature/outside_air_temp_degc',
+    'flap': 'sim/flightmodel/controls/flaprat',
+    'slat': 'sim/flightmodel/controls/slatrat',
+    'gear_down': 'laminar/A333/fws/landing_gear_down'
 }
 
 isLogging = [False]
@@ -38,24 +57,25 @@ def draw_callback(inPhase, inIsBefore, inRefcon):
 
 def start_logging():
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_path = os.path.join('G:\\SteamLibrary\\steamapps\\common\\X-Plane 12\\Output\\timeseries', f"FDR_Log_{timestamp}.csv")
+    log_path = os.path.join('G:\\SteamLibrary\\steamapps\\common\\X-Plane 12\\Output\\fdr_files', f"FDR_Log_{timestamp}.fdr")
     file[0] = open(log_path, "w")
 
     file[0].write("A\n")
-    file[0].write("3\n")
+    file[0].write("3\n\n")
+
     file[0].write("ACFT, Aircraft/Laminar Research/Airbus A330-300/A330.acf\n")
     file[0].write("TAIL, N12345\n")
     file[0].write(f"TIME, {datetime.datetime.now().strftime('%H:%M:%S')}\n")
     file[0].write(f"DATE, {datetime.datetime.now().strftime('%d/%m/%Y')}\n")
     file[0].write("PRES, 30.01\n")
     file[0].write("DISA, 0\n")
-    file[0].write("WIND, 180,10\n")
+    file[0].write("WIND, 180,10\n\n")
 
     for name, ref in datarefs.items():
         if name not in ['longitude', 'latitude', 'press_altitude', 'mag_heading', 'pitch', 'roll']:
             file[0].write(f"DREF, {ref}\t\t\t1.0\n")
 
-    file[0].write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroSet,CAS,TAS,GS,BaroAlt,VSPD,OAT\n")
+    file[0].write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroSet,CAS,TAS,GS,BaroAlt,VSPD,OAT,SLAT,FLAP,LDG\n")
     counter[0] = 0
     xp.registerFlightLoopCallback(flight_loop_callback, sampling_rate, 0)
     xp.registerDrawCallback(draw_callback, xp.Phase_Window)
@@ -82,9 +102,9 @@ def toggle_logging(inMenuRef, inItemRef):
 def flight_loop_callback(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
     global counter, file
     i = counter[0]
-    values = [i] + [xp.getDataf(datarefs[param]) for param in [
+    values = [i] + [xp.getDataf(xp.findDataRef(datarefs[param])) for param in [
         "longitude", "latitude", "press_altitude", "mag_heading", "pitch", "roll",
-        "qnh", "cas", "tas", "gs", "baro_altitude", "vspd", "oat"
+        "qnh", "cas", "tas", "gs", "baro_altitude", "vspd", "oat", "slat", "flap", "gear_down"
     ]]
     file[0].write("DATA," + ",".join(f"{val:.10f}" for val in values) + "\n")
     file[0].flush()
