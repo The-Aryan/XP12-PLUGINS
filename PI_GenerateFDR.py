@@ -18,10 +18,7 @@ datarefs = {
     'oat': 'sim/cockpit2/temperature/outside_air_temp_degc',
     'flap': 'sim/flightmodel/controls/flaprat',
     'slat': 'sim/flightmodel/controls/slatrat',
-    'left_unlink': 'laminar/A333/annun/landing_gear/left_unlk',
-    'right_unlink': 'laminar/A333/annun/landing_gear/right_unlk',
-    'nose_unlink': 'laminar/A333/annun/landing_gear/nose_unlk',
-    'gear_down': 'laminar/A333/fws/landing_gear_down'
+    'gear_down': 'sim/cockpit/switches/gear_handle_status'
 }
 
 isLogging = [False]
@@ -62,7 +59,7 @@ def start_logging():
         if name not in ['longitude', 'latitude', 'press_altitude', 'mag_heading', 'pitch', 'roll']:
             file[0].write(f"DREF, {ref}\t\t\t1.0\n")
 
-    file[0].write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroSet,CAS,TAS,GS,BaroAlt,VSPD,OAT,SLAT,FLAP,LDoor,RDoor,NDoor,LDG\n")
+    file[0].write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroSet,CAS,TAS,GS,BaroAlt,VSPD,OAT,SLAT,FLAP,LDG\n")
     counter[0] = 0
     xp.registerFlightLoopCallback(flight_loop_callback, sampling_rate, 0)
     xp.registerDrawCallback(draw_callback, xp.Phase_Window)
@@ -92,7 +89,7 @@ def flight_loop_callback(elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, l
     values = [i] + [xp.getDataf(xp.findDataRef(datarefs[param])) for param in [
         "longitude", "latitude", "press_altitude", "mag_heading", "pitch", "roll",
         "qnh", "cas", "tas", "gs", "baro_altitude", "vspd", "oat", "slat", "flap",
-        "left_unlink", "right_unlink", "nose_unlink", "gear_down"
+        "gear_down"
     ]]
     file[0].write("DATA," + ",".join(f"{val:.10f}" for val in values) + "\n")
     file[0].flush()
