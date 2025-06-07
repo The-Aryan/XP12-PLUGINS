@@ -34,7 +34,7 @@ def toggle_camera_control(refcon):
         print("Releasing Camera control...")
         xp.dontControlCamera()
         
-    isCameraControlled = True
+    isCameraControlled = not isCameraControlled
 
 class PythonInterface:
     def XPluginStart(self):
