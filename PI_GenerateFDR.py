@@ -36,13 +36,19 @@ class PythonInterface:
     def StartLogging(self):
         xp.log("Logging --> Started.")
 
-        time = datetime.datetime.now().strftime('%H:%M:%S')
-        date = datetime.datetime.now().strftime('%d/%m/%Y')
+        time = datetime.datetime.now().strftime('%H-%M-%S')
+        date = datetime.datetime.now().strftime('%d-%m-%Y')
         log_path = os.path.join(
             'G:\\SteamLibrary\\steamapps\\common\\X-Plane 12\\Output\\fdr_files',
             f"FDR_Log_{date + "_" + time}.fdr"
         )
-        self.file = open(log_path, 'w')
+        try:
+            self.file = open(log_path, 'w')
+        except Exception as e:
+            xp.log(f"[ERROR] Could not open log file: {e}")
+            self.file = None
+            self.isLogging = False
+            return
 
         self.file.write("A\n")
         self.file.write("3\n\n")
@@ -73,15 +79,15 @@ class PythonInterface:
         xp.unregisterDrawCallback(self.DrawCallback, 0)
         xp.log("Logging --> Stopped.")
 
-    def ToggleLogging(self):
-        label = "Toggle: ON" if self.isLogging else "Toggle: OFF"
-        xp.setMenuItemName(self.menuId, 1, label)
+    def ToggleLogging(self, menuRefCon, itemRefCon):
         if self.isLogging:
-            self.isLogging = False
             self.StopLogging()
+            self.isLogging = False
+            xp.setMenuItemName(self.menuId, 1, "Toggle: ON")
         else:
-            self.StartLogging()
             self.isLogging = True
+            xp.setMenuItemName(self.menuId, 1, "Toggle: OFF")
+            self.StartLogging()
 
     def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
         i = self.counter
@@ -112,12 +118,13 @@ class PythonInterface:
             param: xp.findDataRef(self.datarefs[param])
             for param in self.parameters
         }
+        xp.log(self.datarefs_pointers)
 
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self):
         self.menuId = xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0)
-        xp.appendMenuItem(self.menuId, "Toggle: OFF", 1, 1)
+        xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
         return 1
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
