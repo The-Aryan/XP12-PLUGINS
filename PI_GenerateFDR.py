@@ -118,6 +118,7 @@ class PythonInterface:
     def XPluginEnable(self):
         self.menuId = xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0)
         xp.appendMenuItem(self.menuId, "Toggle: OFF", 1, 1)
+        return 1
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
         pass
