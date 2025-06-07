@@ -11,8 +11,8 @@ class PythonInterface:
 
         self.datarefs = {
             # Must Have Datarefs
-            'latitude': 'sim/flightmodel/position/latitude',
             'longitude': 'sim/flightmodel/position/longitude',
+            'latitude': 'sim/flightmodel/position/latitude',
             'press_altitude': 'sim/flightmodel2/position/pressure_altitude',
             'mag_heading': 'sim/flightmodel/position/mag_psi',
             'pitch': 'sim/flightmodel/position/theta',
@@ -26,6 +26,7 @@ class PythonInterface:
             'flap': 'sim/flightmodel/controls/flaprat',
             'gear_down': 'laminar/A333/fws/landing_gear_down'
         }
+        self.parameters = list(self.datarefs.keys())
 
         self.isLogging = [False]
         self.isDrawing = [False]
@@ -34,15 +35,17 @@ class PythonInterface:
         self.file = [None]
 
     def XPluginStart(self):
+
+        self.datarefs_pointers = {
+            param: xp.findDataRef(self.datarefs[param])
+            for param in self.parameters
+        }
+
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self):
-        xp.appendMenuItem(
-            xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0),
-            "Toggle",
-            1,
-            1
-        )
+        self.menu_handler = xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0)
+        xp.appendMenuItem(self.menu_handler, "Toggle", 1, 1)
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
         pass
@@ -53,30 +56,6 @@ class PythonInterface:
 
     def XPluginStop(self):
         pass
-
-    def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
-        i = self.counter[0]
-        values = [i] + [xp.getDataf(xp.findDataRef(self.datarefs[param])) for param in [
-            "longitude", "latitude", "press_altitude", "mag_heading", "pitch", "roll",
-            "baro_altitude", "cas", "vspd", "slat", "flap", "gear_down"
-        ]]
-        self.file[0].write("DATA," + ",".join(f"{val:.10f}" for val in values) + "\n")
-        self.file[0].flush()
-        self.counter[0] += 1
-
-        return 1
-
-    def DrawCallback(self, inPhase, inIsBefore, inRefCon):
-        if self.isLogging[0]:
-            screen_width, screen_height = xp.getScreenSize()
-            xp.drawString(
-                rgb=(1.0, 1.0, 1.0),
-                x=screen_width + 5 - screen_width,
-                y=screen_height + 5 - screen_height,
-                value=f"[LOGGING TIMESERIES] | Samples: {self.counter[0]:,}",
-                fontID=1
-            )
-        return 1
 
     def StartLogging(self):
         time = datetime.datetime.now().strftime('%H:%M:%S')
@@ -124,3 +103,27 @@ class PythonInterface:
             self.StopLogging()
         else:
             self.StartLogging()
+
+    def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
+        i = self.counter[0]
+        values = [i] + [
+            xp.getDataf(self.datarefs_pointers[param]) if self.datarefs_pointers.get(param) else float('nan')
+            for param in self.parameters
+        ]
+        self.file[0].write("DATA," + ",".join(f"{val:.5f}" for val in values) + "\n")
+        self.file[0].flush()
+        self.counter[0] += 1
+
+        return 1
+
+    def DrawCallback(self, inPhase, inIsBefore, inRefCon):
+        if self.isLogging[0]:
+            screen_width, screen_height = xp.getScreenSize()
+            xp.drawString(
+                rgb=(1.0, 1.0, 1.0),
+                x=screen_width + 5 - screen_width,
+                y=screen_height + 5 - screen_height,
+                value=f"[LOGGING TIMESERIES DATA] | Samples: {self.counter[0]:,}",
+                fontID=1
+            )
+        return 1
