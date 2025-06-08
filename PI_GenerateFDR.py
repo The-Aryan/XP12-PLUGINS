@@ -114,12 +114,10 @@ class PythonInterface:
         return 1
 
     def XPluginStart(self):
-
         self.datarefs_pointers = {
             param: xp.findDataRef(self.datarefs[param])
             for param in self.parameters
         }
-        xp.log(self.datarefs_pointers)
 
         return self.Name, self.Sig, self.Desc
     
