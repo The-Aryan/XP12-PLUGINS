@@ -40,15 +40,9 @@ class PythonInterface:
         date = datetime.datetime.now().strftime('%d-%m-%Y')
         log_path = os.path.join(
             'G:\\SteamLibrary\\steamapps\\common\\X-Plane 12\\Output\\fdr_files',
-            f"FDR_Log_{date + "_" + time}.fdr"
+            f"[FDR]_{date + "_" + time}.fdr"
         )
-        try:
-            self.file = open(log_path, 'w')
-        except Exception as e:
-            xp.log(f"[ERROR] Could not open log file: {e}")
-            self.file = None
-            self.isLogging = False
-            return
+        self.file = open(log_path, 'w')
 
         self.file.write("A\n")
         self.file.write("3\n\n")
@@ -69,24 +63,24 @@ class PythonInterface:
         self.file.write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroAlt,VSPD,SLAT,FLAP,LDG\n")
         self.counter = 0
         xp.registerFlightLoopCallback(self.FlightLoopCallback, self.sampling_rate, 0)
-        xp.registerDrawCallback(self.DrawCallback, xp.Phase_Window)
+        xp.registerDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
 
     def StopLogging(self):
         if self.file:
             self.file.close()
             self.file = None
-        xp.unregisterFlightLoopCallback(self.FlightLoopCallback)
-        xp.unregisterDrawCallback(self.DrawCallback, 0)
+        xp.unregisterFlightLoopCallback(self.FlightLoopCallback, 0)
+        xp.unregisterDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
         xp.log("Logging --> Stopped.")
 
     def ToggleLogging(self, menuRefCon, itemRefCon):
         if self.isLogging:
             self.StopLogging()
             self.isLogging = False
-            xp.setMenuItemName(self.menuId, 1, "Toggle: ON")
+            xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: ON")
         else:
             self.isLogging = True
-            xp.setMenuItemName(self.menuId, 1, "Toggle: OFF")
+            xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: OFF")
             self.StartLogging()
 
     def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
@@ -101,7 +95,7 @@ class PythonInterface:
 
         return 1
 
-    def DrawCallback(self, inPhase, inIsBefore, inRefCon):
+    def DrawCallback(self, inPhase, inAfter, inRefCon):
         screen_width, screen_height = xp.getScreenSize()
         xp.drawString(
             rgb=(1.0, 1.0, 1.0),
@@ -124,16 +118,14 @@ class PythonInterface:
     
     def XPluginEnable(self):
         self.menuId = xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0)
-        xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
+        self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
         return 1
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
         pass
 
     def XPluginDisable(self):
-        if self.isLogging:
-            self.StopLogging()
-        xp.destroyMenu(self.menuId)
+        pass
 
     def XPluginStop(self):
         pass
