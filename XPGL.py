@@ -92,8 +92,7 @@ def load():
     Data['fontID'] = xpgl.loadFont("Resources/fonts/Roboto-Bold.ttf", 26)
 
 def draw():
-    # Here is my draw routine... since I'm calling two different draw routines,
-    # I simply redirect
+    # Here is my draw routine... since I'm calling two different draw routines, I simply redirect
     # return draw_example1() if not Data['flip'] else draw_example2()
     xpgl.drawText(
         Data['fontID'],
