@@ -1,3 +1,9 @@
+'''
+Author: Aryan Shukla
+Plugin Name: Generate FDR Files
+Tools Used: Python 3.13.3, XPPython3 4.5.0
+'''
+
 from XPPython3 import xp  # type: ignore
 import os
 import datetime
@@ -35,6 +41,9 @@ class PythonInterface:
 
     def StartLogging(self):
         xp.log("Logging --> Started.")
+        
+        self.isLogging = True
+        xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: OFF")
 
         time = datetime.datetime.now().strftime('%H-%M-%S')
         date = datetime.datetime.now().strftime('%d-%m-%Y')
@@ -58,9 +67,9 @@ class PythonInterface:
         for name, ref in self.datarefs.items():
             # not sure of the order in which datarefs are written when using dictionary.
             if name not in ['latitude', 'longitude', 'press_altitude', 'mag_heading', 'pitch', 'roll']:
-                self.file.write(f"DREF, {ref}\t\t\t1.0\n\n")
+                self.file.write(f"DREF, {ref}\t\t\t1.0\n")
 
-        self.file.write("COMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroAlt,VSPD,SLAT,FLAP,LDG\n")
+        self.file.write("\nCOMM,Sample,Long,Lat,PressureAlt,MagHeading,Pitch,Roll,BaroAlt,VSPD,SLAT,FLAP,LDG\n")
         self.counter = 0
         xp.registerFlightLoopCallback(self.FlightLoopCallback, self.sampling_rate, 0)
         xp.registerDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
@@ -71,16 +80,14 @@ class PythonInterface:
             self.file = None
         xp.unregisterFlightLoopCallback(self.FlightLoopCallback, 0)
         xp.unregisterDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
+        self.isLogging = False
+        xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: ON")
         xp.log("Logging --> Stopped.")
 
     def ToggleLogging(self, menuRefCon, itemRefCon):
         if self.isLogging:
             self.StopLogging()
-            self.isLogging = False
-            xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: ON")
         else:
-            self.isLogging = True
-            xp.setMenuItemName(self.menuId, self.menuIndex, "Toggle: OFF")
             self.StartLogging()
 
     def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
@@ -125,7 +132,9 @@ class PythonInterface:
         pass
 
     def XPluginDisable(self):
-        pass
+        if hasattr(self, 'menuId') and self.menuId is not None:
+            xp.destroyMenu(self.menuId)
+            self.menuId = None
 
     def XPluginStop(self):
         pass
