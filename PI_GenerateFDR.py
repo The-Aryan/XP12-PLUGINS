@@ -1,7 +1,7 @@
 '''
-Author: Aryan Shukla
-Plugin Name: Generate FDR Files
-Tools Used: Python 3.13.3, XPPython3 4.5.0
+Author:         Aryan Shukla
+Plugin Name:    Generate FDR Files
+Tools Used:     Python 3.13.3, XPPython3 4.5.0
 '''
 
 from XPPython3 import xp  # type: ignore

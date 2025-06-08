@@ -1,3 +1,9 @@
+'''
+Author:         Aryan Shukla
+Plugin Name:    Parameters Display
+Tools Used:     Python 3.13.3, XPPython3 4.5.0
+'''
+
 from XPPython3 import xp # type: ignore
 
 class PythonInterface:
