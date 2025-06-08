@@ -105,11 +105,11 @@ class PythonInterface:
     def DrawCallback(self, inPhase, inAfter, inRefCon):
         screen_width, screen_height = xp.getScreenSize()
         xp.drawString(
-            rgb=(1.0, 1.0, 1.0),
-            x=screen_width + 5 - screen_width,
+            rgb=(1.0, 0.0, 0.0),
+            x=screen_width - 250,
             y=screen_height + 5 - screen_height,
             value=f"[LOGGING TIMESERIES DATA] | Samples: {self.counter:,}",
-            fontID=1
+            fontID=xp.Font_Proportional
         )
         return 1
 
@@ -122,7 +122,7 @@ class PythonInterface:
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self):
-        self.menuId = xp.createMenu("genFDR", None, 0, self.ToggleLogging, 0)
+        self.menuId = xp.createMenu("Generate FDR", None, 0, self.ToggleLogging, 0)
         self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
         return 1
 
