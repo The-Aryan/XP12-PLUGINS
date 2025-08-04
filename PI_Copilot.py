@@ -57,7 +57,7 @@ class PythonPlugin:
                         xp.log(f"[VoiceCommandPlugin] Unrecognized command: {command_text}")
 
                 except sr.WaitTimeoutError:
-                    continue  # just restart listening
+                    continue
                 except sr.UnknownValueError:
                     xp.log("[VoiceCommandPlugin] Could not understand audio.")
                 except Exception as e:
