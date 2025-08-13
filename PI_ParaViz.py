@@ -20,11 +20,13 @@ class PythonInterface:
 
         self.datarefs = {
             'alt': 'sim/flightmodel2/position/pressure_altitude',
+            'cas': 'sim/cockpit2/gauges/indicators/airspeed_kts_pilot',
         }
 
         self.max_points = 1000
         self.time_history = deque(maxlen=self.max_points)
         self.alt_history = deque(maxlen=self.max_points)
+        self.cas_history = deque(maxlen=self.max_points)
         self._lock = threading.Lock()
 
         self._running = False
@@ -35,7 +37,7 @@ class PythonInterface:
 
     def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
         if not self._running:
-            return 0.1
+            return 1
         
         self.parameters_ts = {
             param: xp.getDataf(self.datarefs_pointers[param])
@@ -45,8 +47,9 @@ class PythonInterface:
         with self._lock:
             self.time_history.append(time.time() - self.start_time)
             self.alt_history.append(self.parameters_ts['alt'])
+            self.cas_history.append(self.parameters_ts['cas'])
 
-        return 0.1
+        return 1
 
     def XPluginStart(self):
         self.datarefs_pointers = {
@@ -58,7 +61,7 @@ class PythonInterface:
         self._plot_thread = threading.Thread(target=self._start_plot, daemon=True)
         self._plot_thread.start()
 
-        xp.registerFlightLoopCallback(self.FlightLoopCallback, 0.1, 0)
+        xp.registerFlightLoopCallback(self.FlightLoopCallback, 1, 0)
         xp.log("ParaViz --> Started.")
 
         return self.Name, self.Sig, self.Desc
@@ -89,25 +92,34 @@ class PythonInterface:
         win = pg.GraphicsLayoutWidget(show=True, title="Live Timeseries Data")
         win.resize(600, 900)
 
-        alt_plot = win.addPlot(title="ALTITUDE (ft)")
-        alt_plot.showGrid(x=True, y=True)
-        alt_plot.setLabel('left', 'Altitude (ft)', units='ft')
-        alt_plot.setLabel('bottom', 'Time (s)', units='s')
+        alt_plot = win.addPlot(title="ALTITUDE")
+        alt_plot.showGrid(x=False, y=False)
+        alt_plot.setLabel('left', 'Altitude', units='ft')
+        alt_plot.setLabel('bottom', 'Time', units='s')
         alt_curve = alt_plot.plot(pen=pg.mkPen(width=2))
 
-        timer = QtCore.QTimer()
-        timer.timeout.connect(lambda: self._update_plot(alt_curve))
-        timer.start(100)
+        win.nextRow()
+        cas_plot = win.addPlot(title="CAS")
+        cas_plot.showGrid(x=False, y=False)
+        cas_plot.setLabel('left', 'Speed', units='kts')
+        cas_plot.setLabel('bottom', 'Time', units='s')
+        cas_curve = cas_plot.plot(pen=pg.mkPen(width=2))
+
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(lambda: self._update_plot(alt_curve, cas_curve))
+        self.timer.setTimerType(QtCore.Qt.PreciseTimer)
+        self.timer.start(1200)
 
         self._app.exec_()
 
-    def _update_plot(self, alt_curve):
+    def _update_plot(self, alt_curve, cas_curve):
         with self._lock:
             t = list(self.time_history)
             alt = list(self.alt_history)
+            cas = list(self.cas_history)
 
         if not t:
             return
         
         alt_curve.setData(t, alt)
-        alt_curve.curve.setAutoVisible(True)
+        cas_curve.setData(t, cas)
