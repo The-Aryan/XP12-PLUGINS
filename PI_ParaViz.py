@@ -30,43 +30,59 @@ class PythonInterface:
         }
 
         self.isPlotting = False
-
-        self.menu = None
-        self.toggle_item = None
-        self.params_item = None
-        self.params_menu = None
-        self.param_items = {}
-
-        self._running = False
-        self._lock = threading.Lock()
-        self.start_time = 0.0
-        self.max_points = 360
-        self.timer_ms = 1000
+        self.threadLock = threading.Lock()
+        self.startTime = 0.0
 
         self.datarefs = {}
-        self.time_history = deque(maxlen=self.max_points)
-        self.buffers = {p: deque(maxlen=self.max_points) for p in self.parameters}
+        self.timeTS = deque(maxlen=self.max_points)
+        self.paramTS = {p: deque(maxlen=self.max_points) for p in self.parameters}
 
-        self._app = None
-        self._plot_thread = None
-        self.timer = None
-        self.win = None
-        self.plot = None
-        self.right_vb = None
-        self.curves = {}
-        self._plotted_pair = tuple()
+        self.plotThread = None
 
-    def StartPlotting(self):
-        xp.log("Plotting --> Started.")
+    def XPluginStart(self):
+        self.paravizMenuId = xp.createMenu(
+            "ParaViz",          # name
+            None,               # parentMenuID
+            0,                  # parentItem
+            self.ToggleLogging, # handler
+            None                # refCon
+        )
+        self.toggleMenuItemId = xp.appendMenuItem(self.paravizMenuId, "Toggle: ON", 1)
+        self.paramsMenuItemId = xp.appendMenuItem(self.paravizMenuId, "Parameters", 2)
+        self.paramsMenuId = xp.createMenu(
+            "Parameters",
+            self.paravizMenuId,
+            self.paramsMenuItemId,
+            self.TogglePlotting,
+            0
+        )
+        for i, pname in enumerate(self.parameters.keys()):
+            self.param_items[pname] = xp.appendMenuItem(
+                self.paramsMenuId,
+                (f"{pname.upper()} - Hide" if self.parameters[pname]["enabled"] else f"{pname.upper()} - Show"),
+                None
+            )
 
-        self.isPlotting = True
+        return self.Name, self.Sig, self.Desc
+    
+    def XPluginEnable(self):
+        return 1
+    
+    def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
+        pass
+    
+    def XPluginDisable(self):
+        pass
 
-    # def menu_handler(self, menuRef, itemRef):
-    #     if itemRef == 1:
-    #         if self._running:
-    #             self._stop_plot()
-    #         else:
-    #             self._start_plotting()
+    def XPluginStop(self):
+        xp.log("Parameter Visualization: Stopped")
+
+    def TogglePlotting(self, menuRef, itemRef):
+        if itemRef == 1:
+            if self.isPlotting:
+                self.StopPlotting()
+            else:
+                self.StartPlotting()
 
     # def param_menu_handler(self, menuRef, itemRef):
     #     pname = list(self.parameters.keys())[itemRef]
@@ -78,42 +94,42 @@ class PythonInterface:
     #         ("X" if self.parameters[pname]["enabled"] else "") + pname
     #     )
 
-    #     if self._running:
+    #     if self.isPlotting:
     #         self._request_ui_rebuild()
 
-    # def _start_plotting(self):
-    #     self.datarefs = {p: xp.findDataRef(cfg["dref"]) for p, cfg in self.parameters.keys()}
-    #     with self._lock:
-    #         self.start_time = time.time()
-    #         self.time_history.clear()
-    #         for p in self.parameters:
-    #             self.buffers[p].clear()
+    def StartPlotting(self):
+        self.datarefs = {p: xp.findDataRef(cfg["dref"]) for p, cfg in self.parameters.keys()}
+        with self.threadLock:
+            self.startTime = time.time()
+            self.timeTS.clear()
+            for p in self.parameters:
+                self.paramTS[p].clear()
 
-    #     self._running = True
-    #     self._plot_thread = threading.Thread(target=self._ui_thread, daemon=True)
-    #     self._plot_thread.start()
+        self.isPlotting = True
+        self.plotThread = threading.Thread(target=self._ui_thread, daemon=True)
+        self.plotThread.start()
 
-    #     xp.registerFlightLoopCallback(self.flightloop_cb, 1.0, 0)
-    #     xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: OFF")
-    #     xp.log("LivePlotter: Started")
+        xp.registerFlightLoopCallback(self.FlightLoopCallback, 1.0, 0)
+        xp.setMenuItemName(self.paravizMenuId, self.toggleMenuItemId, "Toggle: OFF")
+        xp.log("Parameter Visualization: Started")
 
-    # def _stop_plot(self):
-    #     if not self._running:
-    #         return
-    #     self._running = False
-    #     xp.unregisterFlightLoopCallback(self.flightloop_cb, 0)
+    def StopPlotting(self):
+        if not self.isPlotting:
+            return
+        self.isPlotting = False
+        xp.unregisterFlightLoopCallback(self.FlightLoopCallback, 0)
 
-    #     if self._app:
-    #         QtCore.QTimer.singleShot(0, self._app.quit)
-    #     xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: ON")
+        if self._app:
+            QtCore.QTimer.singleShot(0, self._app.quit)
+        xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: ON")
 
-    # def flightloop_cb(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
-    #     if not self._running:
+    # def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
+    #     if not self.isPlotting:
     #         return 0.0
         
     #     t = time.time() - self.start_time
 
-    #     with self._lock:
+    #     with self.threadLock:
     #         self.time_history.append(t)
     #         for pname, cfg in self.parameters.items():
     #             if not self.datarefs.get(pname):
@@ -194,7 +210,7 @@ class PythonInterface:
     #         self.curves.clear()
     #         self._build_window()
 
-    #     with self._lock:
+    #     with self.threadLock:
     #         t = list(self.time_history)
     #         left_data  = list(self.buffers.get(left_param, []))  if left_param  else None
     #         right_data = list(self.buffers.get(right_param, [])) if right_param else None
@@ -222,43 +238,4 @@ class PythonInterface:
     #         return pname[pname.find('(')+1:pname.find(')')]
     #     return ""
 
-    def TogglePlotting(self, menuRefCon, itemRefCon):
-        xp.log(itemRefCon)
-
-    def XPluginStart(self):
-        self.menuId = xp.createMenu(
-            "ParaViz",  # name
-            None,       # parentMenuID
-            0,          # parentItem
-            None,       # handler
-            None        # refCon
-        )
-        self.toggleMenuItemId = xp.appendMenuItem(self.menuId, "Toggle: ON", 1)
-        self.paramsMenuItemId = xp.appendMenuItem(self.menuId, "Parameters", 2)
-        self.paramsMenuId = xp.createMenu(
-            "Parameters",
-            self.menuId,
-            self.paramsMenuItemId,
-            self.TogglePlotting,
-            0
-        )
-        for i, pname in enumerate(self.parameters.keys()):
-            self.param_items[pname] = xp.appendMenuItem(
-                self.paramsMenuId,
-                (f"{pname} - Hide" if self.parameters[pname]["enabled"] else f"{pname} - Show"),
-                None
-            )
-
-        return self.Name, self.Sig, self.Desc
     
-    def XPluginEnable(self):
-        return 1
-    
-    def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):
-        pass
-    
-    def XPluginDisable(self):
-        pass
-
-    def XPluginStop(self):
-        xp.log("LivePlotter: Stopped")
