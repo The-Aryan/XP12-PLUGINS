@@ -24,10 +24,12 @@ class PythonInterface:
                 "dref": "sim/flightmodel2/position/pressure_altitude",
             },
             "cas": {
-                "enabled": True,
+                "enabled": False,
                 "dref": "sim/cockpit2/gauges/indicators/airspeed_kts_pilot",
             },
         }
+
+        self.isPlotting = False
 
         self.menu = None
         self.toggle_item = None
@@ -54,18 +56,199 @@ class PythonInterface:
         self.curves = {}
         self._plotted_pair = tuple()
 
+    def StartPlotting(self):
+        xp.log("Plotting --> Started.")
+
+        self.isPlotting = True
+
+    # def menu_handler(self, menuRef, itemRef):
+    #     if itemRef == 1:
+    #         if self._running:
+    #             self._stop_plot()
+    #         else:
+    #             self._start_plotting()
+
+    # def param_menu_handler(self, menuRef, itemRef):
+    #     pname = list(self.parameters.keys())[itemRef]
+    #     self.parameters[pname]["enabled"] = not self.parameters[pname]["enabled"]
+
+    #     xp.setMenuItemName(
+    #         self.params_menu,
+    #         self.param_items[pname],
+    #         ("X" if self.parameters[pname]["enabled"] else "") + pname
+    #     )
+
+    #     if self._running:
+    #         self._request_ui_rebuild()
+
+    # def _start_plotting(self):
+    #     self.datarefs = {p: xp.findDataRef(cfg["dref"]) for p, cfg in self.parameters.keys()}
+    #     with self._lock:
+    #         self.start_time = time.time()
+    #         self.time_history.clear()
+    #         for p in self.parameters:
+    #             self.buffers[p].clear()
+
+    #     self._running = True
+    #     self._plot_thread = threading.Thread(target=self._ui_thread, daemon=True)
+    #     self._plot_thread.start()
+
+    #     xp.registerFlightLoopCallback(self.flightloop_cb, 1.0, 0)
+    #     xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: OFF")
+    #     xp.log("LivePlotter: Started")
+
+    # def _stop_plot(self):
+    #     if not self._running:
+    #         return
+    #     self._running = False
+    #     xp.unregisterFlightLoopCallback(self.flightloop_cb, 0)
+
+    #     if self._app:
+    #         QtCore.QTimer.singleShot(0, self._app.quit)
+    #     xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: ON")
+
+    # def flightloop_cb(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
+    #     if not self._running:
+    #         return 0.0
+        
+    #     t = time.time() - self.start_time
+
+    #     with self._lock:
+    #         self.time_history.append(t)
+    #         for pname, cfg in self.parameters.items():
+    #             if not self.datarefs.get(pname):
+    #                 continue
+    #             try:
+    #                 raw = xp.getDataf(self.datarefs[pname])
+    #             except Exception:
+    #                 continue
+
+    #             self.buffers[pname].append(raw)
+
+    #     return 1.0
+    
+    # def _ui_thread(self):
+    #     self._app = QtWidgets.QApplication(sys.argv)
+    #     self._build_window()
+
+    #     self.timer = QtCore.QTimer()
+    #     self.timer.setTimerType(QtCore.Qt.PreciseTimer)
+    #     self.timer.timeout.connect(self._update_plot)
+    #     self.timer.start(self.timer_ms)
+
+    #     self._app.exec_()
+    #     self._app = None
+    #     self.timer = None
+    #     self.win = None
+    #     self.plot = None
+    #     self.right_vb = None
+    #     self.curves.clear()
+    #     self._plotted_pair = tuple()
+
+    # def _build_window(self):
+    #     self.win = pg.GraphicsLayoutWidget(show=True, title="Live Data Plotter")
+    #     self.win.resize(980, 580)
+
+    #     self.plot = self.win.addPlot(title="Parameters vs Time")
+    #     self.plot.showGrid(x=True, y=True)
+    #     self.plot.setLabel('bottom', 'Time', units='s')
+
+    #     left_param, right_param = self._pick_enabled_pair()
+
+    #     if left_param:
+    #         self.plot.setLabel('left', left_param.split(' (')[0], units=self._units_from_name(left_param))
+    #         self.curves[left_param] = self.plot.plot(pen=pg.mkPen(width=2))
+    #     else:
+    #         self.plot.setLabel('left', '')
+
+    #     self.right_vb = None
+    #     if right_param:
+    #         self.plot.showAxis('right')
+    #         self.plot.setLabel('right', right_param.split(' (')[0], units=self._units_from_name(right_param))
+    #         self.plot.getAxis('right').setPen(pg.mkPen(width=1))
+    #         self.right_vb = pg.ViewBox()
+    #         self.plot.scene().addItem(self.right_vb)
+    #         self.plot.getAxis('right').linkToView(self.right_vb)
+    #         self.right_vb.setXLink(self.plot)
+    #         def _sync():
+    #             self.right_vb.setGeometry(self.plot.vb.sceneBoundingRect())
+    #             self.right_vb.linkedViewChanged(self.plot.vb, self.right_vb.XAxis)
+    #         _sync()
+    #         self.plot.vb.sigResized.connect(_sync)
+
+    #         c = pg.PlotCurveItem(pen=pg.mkPen(width=2))
+    #         self.right_vb.addItem(c)
+    #         self.curves[right_param] = c
+    #     else:
+    #         self.plot.hideAxis('right')
+
+    #     self._plotted_pair = (left_param, right_param)
+
+    # def _request_ui_rebuild(self):
+    #     self._plotted_pair = tuple()
+
+    # def _update_plot(self):
+    #     left_param, right_param = self._pick_enabled_pair()
+    #     if (left_param, right_param) != self._plotted_pair:
+    #         self.win.close() if self.win else None
+    #         self.curves.clear()
+    #         self._build_window()
+
+    #     with self._lock:
+    #         t = list(self.time_history)
+    #         left_data  = list(self.buffers.get(left_param, []))  if left_param  else None
+    #         right_data = list(self.buffers.get(right_param, [])) if right_param else None
+
+    #     if not t:
+    #         return
+
+    #     if left_param and left_param in self.curves:
+    #         self.curves[left_param].setData(t, left_data)
+    #     if right_param and right_param in self.curves:
+    #         self.curves[right_param].setData(t, right_data)
+
+    # def _pick_enabled_pair(self):
+    #     """Return up to two enabled parameter names (left, right)."""
+    #     enabled = [p for p, cfg in self.parameters.items() if cfg["enabled"]]
+    #     if not enabled:
+    #         return (None, None)
+    #     if len(enabled) == 1:
+    #         return (enabled[0], None)
+    #     return (enabled[0], enabled[1])
+
+    # @staticmethod
+    # def _units_from_name(pname):
+    #     if '(' in pname and ')' in pname:
+    #         return pname[pname.find('(')+1:pname.find(')')]
+    #     return ""
+
+    def TogglePlotting(self, menuRefCon, itemRefCon):
+        xp.log(itemRefCon)
+
     def XPluginStart(self):
-        self.menu = xp.createMenu("ParaViz", xp.findPluginsMenu(), 0, self.menu_handler, 0)
-        self.toggle_item = xp.createMenuItem(self.menu, "Toggle: ON", 1)
-        self.params_item = xp.createMenuItem(self.menu, "Parameters", 2)
-        self.params_menu = xp.createMenu("Parameters", self.menu, self.params_item, self.param_menu_handler, 0)
+        self.menuId = xp.createMenu(
+            "ParaViz",  # name
+            None,       # parentMenuID
+            0,          # parentItem
+            None,       # handler
+            None        # refCon
+        )
+        self.toggleMenuItemId = xp.appendMenuItem(self.menuId, "Toggle: ON", 1)
+        self.paramsMenuItemId = xp.appendMenuItem(self.menuId, "Parameters", 2)
+        self.paramsMenuId = xp.createMenu(
+            "Parameters",
+            self.menuId,
+            self.paramsMenuItemId,
+            self.TogglePlotting,
+            0
+        )
         for i, pname in enumerate(self.parameters.keys()):
             self.param_items[pname] = xp.appendMenuItem(
-                self.params_menu,
-                ("X" if self.parameters[pname]["enabled"] else "")
+                self.paramsMenuId,
+                (f"{pname} - Hide" if self.parameters[pname]["enabled"] else f"{pname} - Show"),
+                None
             )
 
-        xp.log("LivePlotter: menu ready")
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self):
@@ -75,169 +258,7 @@ class PythonInterface:
         pass
     
     def XPluginDisable(self):
-        self._stop_plot()
+        pass
 
     def XPluginStop(self):
-        self._stop_plot()
         xp.log("LivePlotter: Stopped")
-
-    def menu_handler(self, menuRef, itemRef):
-        if itemRef == 1:
-            if self._running:
-                self._stop_plot()
-            else:
-                self._start_plotting()
-
-    def param_menu_handler(self, menuRef, itemRef):
-        pname = list(self.parameters.keys())[itemRef]
-        self.parameters[pname]["enabled"] = not self.parameters[pname]["enabled"]
-
-        xp.setMenuItemName(
-            self.params_menu,
-            self.param_items[pname],
-            ("X" if self.parameters[pname]["enabled"] else "") + pname
-        )
-
-        if self._running:
-            self._request_ui_rebuild()
-
-    def _start_plotting(self):
-        self.datarefs = {p: xp.findDataRef(cfg["dref"]) for p, cfg in self.parameters.keys()}
-        with self._lock:
-            self.start_time = time.time()
-            self.time_history.clear()
-            for p in self.parameters:
-                self.buffers[p].clear()
-
-        self._running = True
-        self._plot_thread = threading.Thread(target=self._ui_thread, daemon=True)
-        self._plot_thread.start()
-
-        xp.registerFlightLoopCallback(self.flightloop_cb, 1.0, 0)
-        xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: OFF")
-        xp.log("LivePlotter: Started")
-
-    def _stop_plot(self):
-        if not self._running:
-            return
-        self._running = False
-        xp.unregisterFlightLoopCallback(self.flightloop_cb, 0)
-
-        if self._app:
-            QtCore.QTimer.singleShot(0, self._app.quit)
-        xp.setMenuItemName(self.menu, self.toggle_item, "Toggle: ON")
-
-    def flightloop_cb(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
-        if not self._running:
-            return 0.0
-        
-        t = time.time() - self.start_time
-
-        with self._lock:
-            self.time_history.append(t)
-            for pname, cfg in self.parameters.items():
-                if not self.datarefs.get(pname):
-                    continue
-                try:
-                    raw = xp.getDataf(self.datarefs[pname])
-                except Exception:
-                    continue
-
-                self.buffers[pname].append(raw)
-
-        return 1.0
-    
-    def _ui_thread(self):
-        self._app = QtWidgets.QApplication(sys.argv)
-        self._build_window()
-
-        self.timer = QtCore.QTimer()
-        self.timer.setTimerType(QtCore.Qt.PreciseTimer)
-        self.timer.timeout.connect(self._update_plot)
-        self.timer.start(self.timer_ms)
-
-        self._app.exec_()
-        self._app = None
-        self.timer = None
-        self.win = None
-        self.plot = None
-        self.right_vb = None
-        self.curves.clear()
-        self._plotted_pair = tuple()
-
-    def _build_window(self):
-        self.win = pg.GraphicsLayoutWidget(show=True, title="Live Data Plotter")
-        self.win.resize(980, 580)
-
-        self.plot = self.win.addPlot(title="Parameters vs Time")
-        self.plot.showGrid(x=True, y=True)
-        self.plot.setLabel('bottom', 'Time', units='s')
-
-        left_param, right_param = self._pick_enabled_pair()
-
-        if left_param:
-            self.plot.setLabel('left', left_param.split(' (')[0], units=self._units_from_name(left_param))
-            self.curves[left_param] = self.plot.plot(pen=pg.mkPen(width=2))
-        else:
-            self.plot.setLabel('left', '')
-
-        self.right_vb = None
-        if right_param:
-            self.plot.showAxis('right')
-            self.plot.setLabel('right', right_param.split(' (')[0], units=self._units_from_name(right_param))
-            self.plot.getAxis('right').setPen(pg.mkPen(width=1))
-            self.right_vb = pg.ViewBox()
-            self.plot.scene().addItem(self.right_vb)
-            self.plot.getAxis('right').linkToView(self.right_vb)
-            self.right_vb.setXLink(self.plot)
-            def _sync():
-                self.right_vb.setGeometry(self.plot.vb.sceneBoundingRect())
-                self.right_vb.linkedViewChanged(self.plot.vb, self.right_vb.XAxis)
-            _sync()
-            self.plot.vb.sigResized.connect(_sync)
-
-            c = pg.PlotCurveItem(pen=pg.mkPen(width=2))
-            self.right_vb.addItem(c)
-            self.curves[right_param] = c
-        else:
-            self.plot.hideAxis('right')
-
-        self._plotted_pair = (left_param, right_param)
-
-    def _request_ui_rebuild(self):
-        self._plotted_pair = tuple()
-
-    def _update_plot(self):
-        left_param, right_param = self._pick_enabled_pair()
-        if (left_param, right_param) != self._plotted_pair:
-            self.win.close() if self.win else None
-            self.curves.clear()
-            self._build_window()
-
-        with self._lock:
-            t = list(self.time_history)
-            left_data  = list(self.buffers.get(left_param, []))  if left_param  else None
-            right_data = list(self.buffers.get(right_param, [])) if right_param else None
-
-        if not t:
-            return
-
-        if left_param and left_param in self.curves:
-            self.curves[left_param].setData(t, left_data)
-        if right_param and right_param in self.curves:
-            self.curves[right_param].setData(t, right_data)
-
-    def _pick_enabled_pair(self):
-        """Return up to two enabled parameter names (left, right)."""
-        enabled = [p for p, cfg in self.parameters.items() if cfg["enabled"]]
-        if not enabled:
-            return (None, None)
-        if len(enabled) == 1:
-            return (enabled[0], None)
-        return (enabled[0], enabled[1])
-
-    @staticmethod
-    def _units_from_name(pname):
-        if '(' in pname and ')' in pname:
-            return pname[pname.find('(')+1:pname.find(')')]
-        return ""

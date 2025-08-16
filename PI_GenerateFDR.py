@@ -11,7 +11,7 @@ import datetime
 
 class PythonInterface:
     def __init__(self):
-        self.Name = "Generate FDR Files"
+        self.Name = "GenFDR"
         self.Sig = "aryanshukla.plugin002.generatefdr"
         self.Desc = "Logs Timeseries Data Into A FDR File"
 
@@ -119,11 +119,12 @@ class PythonInterface:
             for param in self.parameters
         }
 
+        self.menuId = xp.createMenu("Generate FDR", None, 0, self.ToggleLogging, 0)
+        self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
+
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self):
-        self.menuId = xp.createMenu("Generate FDR", None, 0, self.ToggleLogging, 0)
-        self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
         return 1
 
     def XPluginReceiveMessage(self, inFromWho, inMessage, inParam):

@@ -128,11 +128,12 @@ class PythonInterface:
             for param in self.parameters
         }
 
+        self.menuId = xp.createMenu("Display Parameters", None, 0, self.ToggleDisplay, 0)
+        self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
+
         return self.Name, self.Sig, self.Desc
 
     def XPluginEnable(self):
-        self.menuId = xp.createMenu("Display Parameters", None, 0, self.ToggleDisplay, 0)
-        self.menuIndex = xp.appendMenuItem(self.menuId, "Toggle: ON", 1, 1)
         return 1
 
     def XPluginDisable(self):
