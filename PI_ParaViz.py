@@ -127,9 +127,11 @@ class PythonInterface:
         self.qtThread.start()
 
         xp.registerFlightLoopCallback(self.FlightLoopCallback, 1, None)
+        xp.registerDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
 
     def StopPlotting(self):
         xp.unregisterFlightLoopCallback(self.FlightLoopCallback, None)
+        xp.unregisterDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
 
         if self.app:
             self.app.quit()
@@ -150,6 +152,17 @@ class PythonInterface:
 
                 xp.log(f"[ParaViz] t={t:.1f} {pname.upper()}={val:.1f}")
 
+        return 1
+    
+    def DrawCallback(self, inPhase, inAfter, inRefCon):
+        screen_width, screen_height = xp.getScreenSize()
+        xp.drawString(
+            rgb=(1.0, 0.0, 0.0),
+            x=screen_width - 250,
+            y=screen_height + 5 - screen_height,
+            value=f"PLOTTING TIMESERIES DATA ...",
+            fontID=xp.Font_Proportional
+        )
         return 1
     
     # def _ui_thread(self):
