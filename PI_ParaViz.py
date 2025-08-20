@@ -24,36 +24,37 @@ class PythonInterface:
                 "dref": "sim/flightmodel2/position/pressure_altitude",
                 "ref": None,
                 "menuItemId": None,
-                "timeseries": []
+                "timeseries": deque(maxlen=7200)
             },
             "cas": {
                 "enabled": False,
                 "dref": "sim/cockpit2/gauges/indicators/airspeed_kts_pilot",
                 "ref": None,
                 "menuItemId": None,
-                "timeseries": []
+                "timeseries": deque(maxlen=7200)
             },
         }
 
         self.isPlotting = False
-        self.paramMenuItems = {}
-
         self.tStart = None
+
+        self._lock = threading.Lock()
+        self._stop_event = threading.Event()
 
         self.app = None
         self.win = None
         self.curves = {}
         self.plotWidget = None
-
+        self.qtTimer = None
         self.qtThread = None
 
     def XPluginStart(self):
         self.paravizMenuId = xp.createMenu(
-            "ParaViz",          # name
-            None,               # parentMenuID
-            0,                  # parentItem
-            self.MenuHandler,   # handler
-            None                # refCon
+            "ParaViz",
+            None,
+            0,
+            self.MenuHandler,
+            None
         )
         self.toggleMenuItemId = xp.appendMenuItem(self.paravizMenuId, "Toggle: ON", 'toggle')
         self.paramsMenuItemId = xp.appendMenuItem(self.paravizMenuId, "Parameters", None)
@@ -85,10 +86,15 @@ class PythonInterface:
         pass
     
     def XPluginDisable(self):
-        pass
+        if self.isPlotting:
+            self.StopPlotting()
+            return None
 
     def XPluginStop(self):
-        xp.log("XPluginStop")
+        try:
+            self._shutdown_qt()  # variable does not exist
+        except Exception as e:
+            xp.log(f"ParaViz: Error On Shutdown: {e}")
 
     def MenuHandler(self, menuRef, itemRef):
         if itemRef == 'toggle':
@@ -114,17 +120,13 @@ class PythonInterface:
 
     def StartPlotting(self):
 
-        def _run_qt():
-            self.app = QtWidgets.QApplication(sys.argv)
-            self.win = QtWidgets.QMainWindow()
-            self.plotWidget = pg.PlotWidget(title="ParaViz")
-            self.win.setCentralWidget(self.plotWidget)
-            self.win.resize(800, 500)
-            self.win.show()
-            self.app.exec_()
-
-        self.qtThread = threading.Thread(target=_run_qt, daemon=True)
-        self.qtThread.start()
+        if self.qtThread is None or not self.qtThread.is_alive():
+            self._stop_event.clear()
+            self.qtThread = threading.Thread(target=self._run_qt, name="ParaVizQtThread", daemon=True)
+            self.qtThread.start()
+        else:
+            if self.win:
+                self.win.show()
 
         xp.registerFlightLoopCallback(self.FlightLoopCallback, 1, None)
         xp.registerDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
@@ -133,11 +135,8 @@ class PythonInterface:
         xp.unregisterFlightLoopCallback(self.FlightLoopCallback, None)
         xp.unregisterDrawCallback(self.DrawCallback, xp.Phase_Window, 0, 0)
 
-        if self.app:
-            self.app.quit()
-            self.app = None
-        self.win = None
-        self.plotWidget = None
+        if self.win:
+            self.win.hide()
 
     def FlightLoopCallback(self, elapsedSinceLastCall, elapsedTimeSinceLastFlightLoop, loopCounter, refcon):
         if self.tStart is None:
@@ -145,12 +144,11 @@ class PythonInterface:
 
         t = time.time() - self.tStart
 
-        for pname, cfg in self.parameters.items():
-            if cfg["enabled"]:
-                val = xp.getDataf(cfg["ref"])
-                cfg["timeseries"].append((t, val))
-
-                xp.log(f"[ParaViz] t={t:.1f} {pname.upper()}={val:.1f}")
+        with self._lock:
+            for pname, cfg in self.parameters.items():
+                if cfg["enabled"]:
+                    val = xp.getDataf(cfg["ref"])
+                    cfg["timeseries"].append((t, val))
 
         return 1
     
@@ -165,99 +163,62 @@ class PythonInterface:
         )
         return 1
     
-    # def _ui_thread(self):
-    #     self._app = QtWidgets.QApplication(sys.argv)
-    #     self._build_window()
+    def _run_qt(self):
 
-    #     self.timer = QtCore.QTimer()
-    #     self.timer.setTimerType(QtCore.Qt.PreciseTimer)
-    #     self.timer.timeout.connect(self._update_plot)
-    #     self.timer.start(self.timer_ms)
+            self.app = QtWidgets.QApplication(["ParaViz"])
+            self.win = QtWidgets.QMainWindow()
+            self.win.setWindowTitle("ParaViz — Live Plot")
+            self.win.resize(900, 560)
 
-    #     self._app.exec_()
-    #     self._app = None
-    #     self.timer = None
-    #     self.win = None
-    #     self.plot = None
-    #     self.right_vb = None
-    #     self.curves.clear()
-    #     self._plotted_pair = tuple()
+            self.plotWidget = pg.PlotWidget(title="ParaViz Timeseries")
+            self.plotWidget.showGrid(x=True, y=True)
+            self.plotWidget.setDownsampling(auto=True)
+            self.plotWidget.setClipToView(True)
+            self.plotWidget.addLegend()
+            self.win.setCentralWidget(self.plotWidget)
 
-    # def _build_window(self):
-    #     self.win = pg.GraphicsLayoutWidget(show=True, title="Live Data Plotter")
-    #     self.win.resize(980, 580)
+            self.curves = {}
+            for pname, cfg in self.parameters.items():
+                if cfg["enabled"]:
+                    self.curves[pname] = self.plotWidget.plot(
+                        pen=pg.mkPen(color='y', width=2), name=pname.upper()
+                    )
 
-    #     self.plot = self.win.addPlot(title="Parameters vs Time")
-    #     self.plot.showGrid(x=True, y=True)
-    #     self.plot.setLabel('bottom', 'Time', units='s')
+            self.qtTimer = QtCore.QTimer()
+            self.qtTimer.timeout.connect(self._update_qt)
+            self.qtTimer.start(1200)
 
-    #     left_param, right_param = self._pick_enabled_pair()
+            self.win.show()
+            self.app.exec_()
 
-    #     if left_param:
-    #         self.plot.setLabel('left', left_param.split(' (')[0], units=self._units_from_name(left_param))
-    #         self.curves[left_param] = self.plot.plot(pen=pg.mkPen(width=2))
-    #     else:
-    #         self.plot.setLabel('left', '')
+            self._qt_timer = None
+            self.curves.clear()
+            self.plotWidget = None
+            self.win = None
+            self.app = None
 
-    #     self.right_vb = None
-    #     if right_param:
-    #         self.plot.showAxis('right')
-    #         self.plot.setLabel('right', right_param.split(' (')[0], units=self._units_from_name(right_param))
-    #         self.plot.getAxis('right').setPen(pg.mkPen(width=1))
-    #         self.right_vb = pg.ViewBox()
-    #         self.plot.scene().addItem(self.right_vb)
-    #         self.plot.getAxis('right').linkToView(self.right_vb)
-    #         self.right_vb.setXLink(self.plot)
-    #         def _sync():
-    #             self.right_vb.setGeometry(self.plot.vb.sceneBoundingRect())
-    #             self.right_vb.linkedViewChanged(self.plot.vb, self.right_vb.XAxis)
-    #         _sync()
-    #         self.plot.vb.sigResized.connect(_sync)
+    def _update_qt(self):
+        with self._lock:
+            snapshot = {
+            pname: list(cfg["timeseries"]) if cfg["enabled"] else []
+            for pname, cfg in self.parameters.items()
+            }
+        for pname, series in snapshot.items():
+            if pname in self.curves:
+                if series:
+                    xs, ys = zip(*series)
+                    self.curves[pname].setData(xs, ys)
+                else:
+                    self.curves[pname].clear()
 
-    #         c = pg.PlotCurveItem(pen=pg.mkPen(width=2))
-    #         self.right_vb.addItem(c)
-    #         self.curves[right_param] = c
-    #     else:
-    #         self.plot.hideAxis('right')
+    def _shutdown_qt(self):
+        if self.app is not None:
+            if self._qt_timer is not None:
+                self._qt_timer.stop()
+            if self.win is not None:
+                self.win.close()
+            self.app.quit()
 
-    #     self._plotted_pair = (left_param, right_param)
-
-    # def _request_ui_rebuild(self):
-    #     self._plotted_pair = tuple()
-
-    # def _update_plot(self):
-    #     left_param, right_param = self._pick_enabled_pair()
-    #     if (left_param, right_param) != self._plotted_pair:
-    #         self.win.close() if self.win else None
-    #         self.curves.clear()
-    #         self._build_window()
-
-    #     with self.threadLock:
-    #         t = list(self.time_history)
-    #         left_data  = list(self.buffers.get(left_param, []))  if left_param  else None
-    #         right_data = list(self.buffers.get(right_param, [])) if right_param else None
-
-    #     if not t:
-    #         return
-
-    #     if left_param and left_param in self.curves:
-    #         self.curves[left_param].setData(t, left_data)
-    #     if right_param and right_param in self.curves:
-    #         self.curves[right_param].setData(t, right_data)
-
-    # def _pick_enabled_pair(self):
-    #     """Return up to two enabled parameter names (left, right)."""
-    #     enabled = [p for p, cfg in self.parameters.items() if cfg["enabled"]]
-    #     if not enabled:
-    #         return (None, None)
-    #     if len(enabled) == 1:
-    #         return (enabled[0], None)
-    #     return (enabled[0], enabled[1])
-
-    # @staticmethod
-    # def _units_from_name(pname):
-    #     if '(' in pname and ')' in pname:
-    #         return pname[pname.find('(')+1:pname.find(')')]
-    #     return ""
-
-    
+        if self.qtThread is not None and self.qtThread.is_alive():
+            self.qtThread.join(timeout=1.0)
+        self.qtThread = None
