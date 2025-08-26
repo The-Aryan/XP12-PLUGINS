@@ -231,6 +231,9 @@ class PythonInterface:
         self.parameters = {
             "ALT": "sim/flightmodel2/position/pressure_altitude",
             "CAS": "sim/cockpit2/gauges/indicators/airspeed_kts_pilot",
+            'PTCH': 'sim/flightmodel/position/theta',
+            'ROLL': 'sim/flightmodel/position/phi',
+            'VSPD': 'sim/cockpit2/gauges/indicators/vvi_fpm_pilot'
         }
         self.datarefs_pointer = {}
 
