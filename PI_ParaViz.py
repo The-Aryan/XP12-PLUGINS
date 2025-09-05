@@ -337,7 +337,7 @@ class PythonInterface:
 
         values = {p: xp.getDataf(dref) for p, dref in self.datarefs_pointer.items()}
         self.dataQ.put((time.time(), values))
-        return 0.1
+        return 1
 
     def DrawCallback(self, inPhase, inAfter, inRefCon):
         try:
@@ -352,3 +352,4 @@ class PythonInterface:
         except Exception:
             pass
         return 1
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
