@@ -23,7 +23,8 @@ class PythonInterface:
         self.hotkeyRelease = None
 
         self.recognizer = sr.Recognizer()
-        # self.microphone = sr.Microphone()
+        self.microphone = sr.Microphone()
+        self.audioData = None
         self.isRecording = False
         self.audioData = None
 
@@ -33,18 +34,26 @@ class PythonInterface:
             param: xp.findDataRef(dataref) for param, dataref in self.parameters.items()
         }
 
+        try:
+            with self.microphone as source:
+                xp.log("Calibrating microphone for ambient noise...")
+                self.recognizer.adjust_for_ambient_noise(source, duration=1)
+                xp.log("Microphone calibration complete.")
+        except Exception as e:
+            xp.log(f"Mic calibration failed: {e}")
+
         self.hotkeyPress = xp.registerHotKey(
             xp.VK_Z,
             xp.DownFlag,
             "Push-to-Talk -> Press",
             self.OnPressCallback
         )
-        # self.hotkeyRelease = xp.registerHotKey(
-        #     xp.VK_Z,
-        #     xp.UpFlag,
-        #     "Push-to-Talk -> Release",
-        #     self.OnReleaseCallback
-        # )
+        self.hotkeyRelease = xp.registerHotKey(
+            xp.VK_Z,
+            xp.UpFlag,
+            "Push-to-Talk -> Release",
+            self.OnReleaseCallback
+        )
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self): 
@@ -55,7 +64,7 @@ class PythonInterface:
 
     def XPluginStop(self):
         xp.unregisterHotKey(self.hotkeyPress)
-        # xp.unregisterHotKey(self.hotkeyRelease)
+        xp.unregisterHotKey(self.hotkeyRelease)
 
     def XPluginDisable(self):
         pass
@@ -70,7 +79,7 @@ class PythonInterface:
     def StartRecording(self):
         def record():
             try:
-                with sr.Microphone() as source:
+                with self.microphone as source:
                     xp.log("2Calibrating for ambient noise...")
                     self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
                     xp.log("2Mic ready, listening now...")
