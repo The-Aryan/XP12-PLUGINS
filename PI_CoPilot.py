@@ -4,9 +4,12 @@ Plugin Name:    AI Co-Pilot
 Tools Used:     Python 3.13.3, XPPython3 4.5.0
 """
 
+import os
+import time
 from XPPython3 import xp  # type: ignore
 import speech_recognition as sr
 import threading
+from queue import Queue
 
 class PythonInterface:
     def __init__(self):
@@ -22,25 +25,25 @@ class PythonInterface:
         self.hotkeyPress = None
         self.hotkeyRelease = None
 
+        try:
+            self.microphone = sr.Microphone()
+        except Exception as e:
+            self.microphone = None
+            self.DebugLog(f"[AI CoPilot] [MicInit] Failed to initialize mic: {e}")
+
         self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
-        self.audioData = None
         self.isRecording = False
-        self.audioData = None
+        self.audioData = Queue()
+
+        self.logFile = os.path.join(
+            xp.getSystemPath(), "Resources", "plugins", "recording_debug.log"
+        )
 
     def XPluginStart(self):
 
         self.datarefs_pointer = {
             param: xp.findDataRef(dataref) for param, dataref in self.parameters.items()
         }
-
-        try:
-            with self.microphone as source:
-                xp.log("Calibrating microphone for ambient noise...")
-                self.recognizer.adjust_for_ambient_noise(source, duration=1)
-                xp.log("Microphone calibration complete.")
-        except Exception as e:
-            xp.log(f"Mic calibration failed: {e}")
 
         self.hotkeyPress = xp.registerHotKey(
             xp.VK_Z,
@@ -54,6 +57,7 @@ class PythonInterface:
             "Push-to-Talk -> Release",
             self.OnReleaseCallback
         )
+
         return self.Name, self.Sig, self.Desc
     
     def XPluginEnable(self): 
@@ -70,67 +74,47 @@ class PythonInterface:
         pass
 
     def OnPressCallback(self, inRefcon):
-        self.StartRecording()
+        if not self.isRecording and self.microphone:
+            xp.speakString("Started Listening")
+            self.StartRecording()
 
     def OnReleaseCallback(self, inRefcon):
-        xp.log(f"Stop recording...")
-        # self.StopRecordingAndProcess()
+        if self.isRecording:
+            xp.speakString("Stopped Listening")
+            self.isRecording = False
 
     def StartRecording(self):
+        self.DebugLog("record()")
         def record():
             try:
-                with self.microphone as source:
-                    xp.log("2Calibrating for ambient noise...")
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-                    xp.log("2Mic ready, listening now...")
-                    audio = self.recognizer.listen(source, phrase_time_limit=5)
-                    xp.log(f"2Finished listening. Captured {len(audio.get_raw_data())} bytes")
+                self.isRecording = True
+                self.DebugLog("self.isRecording = True")
+                self.DebugLog("Calibrating for ambient noise...")
+                self.recognizer.adjust_for_ambient_noise(self.microphone, duration=0.1)
+                self.DebugLog("Mic ready, listening...")
+                audio = self.recognizer.listen(self.microphone, timeout=1, phrase_time_limit=5)
+                self.DebugLog(f"Finished listening. Captured {len(audio.get_raw_data())} bytes")
 
-                    self.audio_data = audio
+                if self.isRecording:
+                    self.audioData = audio
+
+                self.DebugLog("record()")
 
             except Exception as e:
-                xp.log(f"Recording error: {e}")
+                self.DebugLog(f"Recording error: {e}")
 
-        threading.Thread(target=record, daemon=True).start()
+            finally:
+                self.isRecording = False
 
-    # def StartRecording(self):
-    #     xp.log(f"Start recording...")
-    #     self.isRecording = True
-    #     with self.microphone as source:
-    #         xp.log("Calibrating for ambient noise...")
-    #         self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
-    #         self._audio_source = source
+        threading.Thread(target=record, daemon=True, name="RecordThread").start()
+    
+    def DebugLog(self, msg):
+        timestamp = time.strftime("%H:%M:%S")
+        thread_name = threading.current_thread().name
+        line = f"[{timestamp}] [{thread_name}] {msg}\n"
 
-    #     def record():
-    #         xp.log(f"Opening microphone...")
-    #         xp.log(f"Mic ready, listening now...")
-    #         self.audioData = self.recognizer.listen(self._audio_source, phrase_time_limit=5)
-    #         xp.log(f"Finished listening. Captured {len(self.audioData.get_raw_data())} bytes")
-    #     threading.Thread(target=record, daemon=True).start()
+        xp.log(line.strip())
 
-    # def StopRecordingAndProcess(self):
-    #     xp.log(f"Stop recording...")
-    #     self.isRecording = False
-    #     if not self.audioData:
-    #         xp.log(f"No audio captured.")
-    #         return
-
-    #     def process():
-    #         try:
-    #             command = self.recognizer.recognize_google(self.audioData).lower()
-    #             xp.log(f"Recognized command: {command}")
-
-    #             if "gear down" in command:
-    #                 xp.setDatai(self.datarefs_pointer['GSD'], 1)
-    #                 xp.speakString("Gear down")
-    #             elif "gear up" in command:
-    #                 xp.setDatai(self.datarefs_pointer['GSD'], 0)
-    #                 xp.speakString("Gear up")
-    #             else:
-    #                 xp.speakString("Command not recognized")
-
-    #         except Exception as e:
-    #             xp.log(f"Speech recognition error: {e}")
-    #             xp.speakString(f"Sorry, I did not understand")
-
-    #     threading.Thread(target=process, daemon=True).start()
+        with open(self.logFile, "a", encoding="utf-8") as f:
+            f.write(line)
+            f.flush()
