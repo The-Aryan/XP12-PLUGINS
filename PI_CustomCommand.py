@@ -15,6 +15,7 @@ class PythonInterface:
         self.datarefs = {
             'heading': 'sim/flightmodel/position/mag_psi'
         }
+        self.parameters = list(self.datarefs.keys())
 
         self.hdgPlus10Cmd = None
     
